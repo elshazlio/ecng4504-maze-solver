@@ -13,7 +13,7 @@ Course project: an autonomous robot that learns an unknown maze, then computes a
 | **Backend** (FastAPI, BLE) | `Bluetooth stuff/maze_dashboard/` |
 | **Web UI** (log viewer) | `Bluetooth stuff/log-viewer/` |
 | **BLE helper scripts** | `Bluetooth stuff/ble_log_receiver.py`, `Bluetooth stuff/ble_scan.py` — root `Bluetooth stuff/requirements.txt` for lightweight deps |
-| **Bill of materials** | `component_list(1).xlsx` |
+| **Bill of materials** | `component_list.xlsx` |
 | **PCB schematic** (exported image) | `PCB Schematic.png` |
 | **Team details** | `team.md` |
 | **3D / mechanical design** | `3d design/` (Fusion 360 `.f3z`) |

@@ -32,7 +32,7 @@ This repository is the **Team 5** submission for an **autonomous maze-learning a
 
 ### Hardware and mechanical documentation
 
-- **`component_list(1).xlsx`** — Bill of materials / component list.
+- **`component_list.xlsx`** — Bill of materials / component list.
 - **`PCB Schematic.png`** — Exported **schematic** image (KiCAD native project files are not included in this tree; only this image is submitted here).
 - **`3d design/chasis.f3z`** — **Fusion 360** chassis / mechanical design archive.
 
