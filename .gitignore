@@ -1,0 +1,33 @@
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.venv/
+venv/
+
+# Maze dashboard — local Python env and machine-specific BLE/cache files
+Bluetooth stuff/maze_dashboard/.venv/
+Bluetooth stuff/maze_dashboard/ble_last_device.json
+Bluetooth stuff/maze_dashboard/maze_run_archive.json
+Bluetooth stuff/maze_dashboard/ble_uart_cache.json
+Bluetooth stuff/maze_dashboard/link_settings.json
+
+# Legacy venv under Bluetooth stuff root
+Bluetooth stuff/venv/
+
+# JS / Bun
+node_modules/
+
+# Local run logs (optional; remove this line if you want logs versioned)
+Run Logs/
+
+# Compiled test binaries (build locally from *.cpp)
+left_turn_regression_test
+left_turn_test
+left_turn_regression_test.review
+close_left_regression_test
+tests/test_working_code_logic

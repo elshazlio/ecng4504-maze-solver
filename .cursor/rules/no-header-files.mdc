@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+keep all the code iterations in one self contained files. no header files. ever.

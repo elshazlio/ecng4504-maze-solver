@@ -1,0 +1,8 @@
+{
+  "name": "hm10-log-viewer",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "bun run serve.ts",
+    "dev": "bun run serve.ts"
+  }
+}

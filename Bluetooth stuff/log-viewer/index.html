@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HM-10 Log Viewer (Offline)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0f12;
+      --surface: #15181d;
+      --border: #252a32;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #22d3ee;
+      --accent-dim: #0891b2;
+      --success: #34d399;
+      --error: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34, 211, 238, 0.08), transparent),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    }
+
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .status {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background 0.2s;
+    }
+
+    .status-dot.connected {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .status-dot.connecting {
+      background: var(--accent);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #1e2329;
+      border-color: var(--accent-dim);
+    }
+
+    .btn-secondary.copied {
+      background: rgba(52, 211, 153, 0.15);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .btn-secondary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    main {
+      flex: 1;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .log-panel {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 300px;
+    }
+
+    .log-panel-header {
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .log-content {
+      flex: 1;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-content:empty::before {
+      content: 'BLE offline - HM-10 unavailable';
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .log-line {
+      margin-bottom: 0.125rem;
+    }
+
+    .log-line.sensor {
+      color: var(--accent);
+    }
+
+    .log-line.status {
+      color: var(--text);
+    }
+
+    .log-line.node {
+      color: var(--success);
+    }
+
+    .log-line.error {
+      color: var(--error);
+    }
+
+    .node-group {
+      margin-bottom: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(34, 211, 238, 0.04);
+      overflow: hidden;
+    }
+
+    .node-summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.75rem 0.9rem;
+      color: var(--success);
+      font-weight: 500;
+    }
+
+    .node-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .node-badge {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.15rem 0.5rem;
+      white-space: nowrap;
+    }
+
+    .node-body {
+      padding: 0 0.9rem 0.8rem;
+      border-top: 1px solid rgba(37, 42, 50, 0.8);
+    }
+
+    footer {
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>HM-10 Log Viewer (Offline)</h1>
+    <div class="controls">
+      <span class="status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">BLE offline - HM-10 unavailable</span>
+      </span>
+      <button class="btn-secondary" id="expandAllBtn">Expand all</button>
+      <button class="btn-secondary" id="collapseAllBtn">Collapse all</button>
+      <button class="btn-secondary" id="copyTurnsBtn" disabled>Copy turns</button>
+      <button class="btn-secondary" id="copyAllBtn" disabled>Copy all</button>
+      <button class="btn-secondary" id="clearBtn">Clear</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="log-panel">
+      <div class="log-panel-header">Live logs</div>
+      <div class="log-content" id="logContent"></div>
+    </div>
+  </main>
+
+  <footer>
+    Maze Trainer telemetry — Temporary BLE outage, use USB serial telemetry
+  </footer>
+
+  <script type="module">
+    import {
+      applyEvent,
+      collapseAllGroups,
+      copyTextFromState,
+      copyTurnsFromState,
+      createInitialState,
+      expandAllGroups,
+      toggleGroup,
+    } from './viewer-state.js';
+
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const expandAllBtn = document.getElementById('expandAllBtn');
+    const collapseAllBtn = document.getElementById('collapseAllBtn');
+    const copyTurnsBtn = document.getElementById('copyTurnsBtn');
+    const copyAllBtn = document.getElementById('copyAllBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const logContent = document.getElementById('logContent');
+
+    const state = createInitialState();
+    let socket = null;
+    let reconnectTimer = null;
+
+    function statusClass(connectionState) {
+      if (connectionState === 'connected') return 'connected';
+      if (connectionState === 'searching') return 'connecting';
+      return '';
+    }
+
+    function render() {
+      statusText.textContent = state.connection.label;
+      statusDot.className = 'status-dot ' + statusClass(state.connection.state);
+
+      logContent.innerHTML = '';
+      const hasGroups = state.entries.some((e) => e.kind === 'group');
+      expandAllBtn.disabled = !hasGroups;
+      collapseAllBtn.disabled = !hasGroups;
+      const hasEntries = state.entries.length > 0;
+      copyTurnsBtn.disabled = !hasEntries;
+      copyAllBtn.disabled = !hasEntries;
+
+      if (state.entries.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'log-line status';
+        empty.style.fontStyle = 'italic';
+        empty.style.color = 'var(--text-muted)';
+        empty.textContent = state.connection.label;
+        logContent.appendChild(empty);
+        return;
+      }
+
+      for (const entry of state.entries) {
+        if (entry.kind === 'line') {
+          const line = document.createElement('div');
+          line.className = `log-line ${entry.lineType}`;
+          line.textContent = entry.line;
+          logContent.appendChild(line);
+          continue;
+        }
+
+        const details = document.createElement('details');
+        details.className = 'node-group';
+        details.open = entry.expanded;
+        details.addEventListener('toggle', () => {
+          toggleGroup(state, entry.id);
+        });
+
+        const summary = document.createElement('summary');
+        summary.className = 'node-summary';
+
+        const title = document.createElement('span');
+        title.textContent = entry.header;
+
+        const badge = document.createElement('span');
+        badge.className = 'node-badge';
+        badge.textContent = `${entry.sensors.length} sensor${entry.sensors.length === 1 ? '' : 's'}`;
+
+        summary.appendChild(title);
+        summary.appendChild(badge);
+        details.appendChild(summary);
+
+        const groupBody = document.createElement('div');
+        groupBody.className = 'node-body';
+        for (const sensorLine of entry.sensors) {
+          const sensor = document.createElement('div');
+          sensor.className = 'log-line sensor';
+          sensor.textContent = sensorLine;
+          groupBody.appendChild(sensor);
+        }
+
+        if (entry.sensors.length === 0) {
+          const emptySensors = document.createElement('div');
+          emptySensors.className = 'log-line status';
+          emptySensors.style.color = 'var(--text-muted)';
+          emptySensors.textContent = 'No sensor lines captured yet.';
+          groupBody.appendChild(emptySensors);
+        }
+
+        details.appendChild(groupBody);
+        logContent.appendChild(details);
+      }
+
+      logContent.scrollTop = logContent.scrollHeight;
+    }
+
+    async function copyTurns() {
+      const text = copyTurnsFromState(state);
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+      copyTurnsBtn.textContent = 'Copied!';
+      copyTurnsBtn.classList.add('copied');
+      setTimeout(() => {
+        copyTurnsBtn.textContent = 'Copy turns';
+        copyTurnsBtn.classList.remove('copied');
+      }, 2000);
+    }
+
+    async function copyAll() {
+      const text = copyTextFromState(state);
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+      copyAllBtn.textContent = 'Copied!';
+      copyAllBtn.classList.add('copied');
+      setTimeout(() => {
+        copyAllBtn.textContent = 'Copy all';
+        copyAllBtn.classList.remove('copied');
+      }, 2000);
+    }
+
+    function clearLogs() {
+      applyEvent(state, { type: 'clear-ui' });
+      render();
+    }
+
+    function connectSocket() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      socket = new WebSocket(`${protocol}//${location.host}/ws`);
+
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(String(event.data));
+          applyEvent(state, payload);
+          render();
+        } catch (error) {
+          applyEvent(state, {
+            type: 'status',
+            state: 'error',
+            message: 'Connection error',
+            error: String(error),
+          });
+          render();
+        }
+      };
+
+      socket.onclose = () => {
+        applyEvent(state, {
+          type: 'status',
+          state: 'retrying',
+          message: 'Disconnected from server - reconnecting...',
+        });
+        render();
+        reconnectTimer = setTimeout(connectSocket, 1500);
+      };
+
+      socket.onerror = () => {
+        applyEvent(state, {
+          type: 'status',
+          state: 'error',
+          message: 'Connection error',
+        });
+        render();
+      };
+    }
+
+    expandAllBtn.addEventListener('click', () => {
+      expandAllGroups(state);
+      render();
+    });
+    collapseAllBtn.addEventListener('click', () => {
+      collapseAllGroups(state);
+      render();
+    });
+    copyTurnsBtn.addEventListener('click', () => void copyTurns());
+    copyAllBtn.addEventListener('click', () => void copyAll());
+    clearBtn.addEventListener('click', clearLogs);
+
+    render();
+    connectSocket();
+  </script>
+</body>
+</html>
