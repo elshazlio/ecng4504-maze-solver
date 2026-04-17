@@ -87,6 +87,7 @@ The **raw** training path includes detours. **`buildOptimalPath`** repeatedly re
 | KiCAD project (native) | [`KiCAD Stuff/`](KiCAD%20Stuff/) — `Embedded Project.kicad_pro`, `.kicad_sch`, `.kicad_pcb`, `.kicad_prl` |
 | Team | [`team.md`](team.md) |
 | 3D / mechanical design | [`3d design/`](3d%20design/) (Fusion 360 `.f3z`) |
+| Local dev (env + both servers) | [`DEV-SERVERS.md`](DEV-SERVERS.md) |
 
 **KiCAD:** open **`KiCAD Stuff/Embedded Project.kicad_pro`** in **KiCad**. Local editor folders (`.history/`, `*-backups/`, lock files) are gitignored.
 
@@ -94,7 +95,12 @@ The **raw** training path includes detours. **`buildOptimalPath`** repeatedly re
 
 ## Running the PC applications
 
-**Maze dashboard**
+The host uses the **same UART protocol** as USB; the **radio path** is either **Bluetooth Classic SPP** (ZS-040 / HC-05) or **BLE** (HM-10 / Nordic UART). Full copy-paste flows (both apps, stop commands, ports) are in **[`DEV-SERVERS.md`](DEV-SERVERS.md)**.
+
+- **Classic SPP (`ZS-040 / HC-05`):** pair in macOS, then set `MAZE_BT_SERIAL` to the paired `/dev/cu.*` device (and `MAZE_BT_BAUD`, usually `9600`). Applies to **both** the maze dashboard and the log viewer.
+- **BLE:** leave `MAZE_BT_SERIAL` unset. Point the **dashboard** at the robot with `MAZE_BLE_ADDR` (fixed address, skips scanning) or `MAZE_BLE_NAME` (scan by advertised name). The **log viewer** does **not** use `MAZE_BLE_ADDR`; it still expects `MAZE_BT_SERIAL` for Classic SPP.
+
+**Maze dashboard (first-time venv)**
 
 ```bash
 cd "Bluetooth stuff/maze_dashboard"
@@ -113,16 +119,30 @@ source .venv/bin/activate
 uvicorn app:app --reload --host 127.0.0.1 --port 8765
 ```
 
-After a successful connection, you can use `export MAZE_BT_SERIAL=last` to reuse `bt_serial_last.json` beside `app.py`. Leave `MAZE_BT_SERIAL` unset to use **BLE** (HM-10) with Bleak as before.
+After a successful connection, you can use `export MAZE_BT_SERIAL=last` to reuse `bt_serial_last.json` beside `app.py`.
+
+**Maze dashboard (BLE by address — example)**
+
+Use when the robot is on the BLE path and you already know its address:
+
+```bash
+unset MAZE_BT_SERIAL
+unset MAZE_BT_BAUD
+export MAZE_BLE_ADDR=78:04:73:16:19:C7
+cd "Bluetooth stuff/maze_dashboard"
+source .venv/bin/activate
+uvicorn app:app --reload --host 127.0.0.1 --port 8765
+```
+
+For scan-based BLE instead of a fixed address, omit `MAZE_BLE_ADDR` and optionally set `MAZE_BLE_NAME`. See `Bluetooth stuff/maze_dashboard/app.py` (module docstring) and `ble_discover.py` for UUID discovery.
 
 **Path preview (SVG map):** The dashboard builds a **turtle-geometry** polyline from path strings and from **training/solve** turn lines in the log (`FORCED_TURN`, `SOLVE_FORCED_TURN`, `SOLVE_NODE`, etc.). The preview appends **one grid segment after the last logged turn** so the **final leg** and **forced** corridor exits show the same corners you see on the track; that step is **visualization-only** and does not change what the robot records or executes. Optional **local-only** regression tests for the map (not published on GitHub) may exist under `Bluetooth stuff/maze_dashboard/`; if you have them, run with `python -m unittest` in that folder using the project venv.
 
-**Log viewer** (see `Bluetooth stuff/log-viewer/package.json` for scripts)
+**Log viewer** (see `Bluetooth stuff/log-viewer/package.json` for scripts). This path uses `ble_log_receiver.py` and **Classic SPP only** — set `MAZE_BT_SERIAL` in the same shell.
 
 ```bash
 cd "Bluetooth stuff/log-viewer"
 bun install
-# Use the same MAZE_BT_SERIAL in this shell so the Python helper can open the port
 export MAZE_BT_SERIAL=/dev/cu.YourModule-DevB
 bun run serve
 ```
