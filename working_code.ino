@@ -23,46 +23,44 @@ const uint8_t LED_PIN = 13;
 const uint8_t SENSOR_LINE_LOW = LOW;   // active-low sensors
 
 // ===================== SPEEDS =====================
-const int BASE_SPEED            = 67;
+const int BASE_SPEED            = 63;
 const int TURN_SPEED            = 110;   // normal left/right turn speed
-const int UTURN_SPEED           = 117;   // separate speed only for U-turn
+const int UTURN_SPEED           = 115;   // separate speed only for U-turn
 const int SEARCH_SPEED          = 72;
 const int PROBE_SPEED           = 52;
 const int DEAD_END_PROBE_SPEED  = 58;
 const int START_SPEED           = 58;
-const int ALIGN_SPEED           = 70;
-const int POST_TURN_SPEED       = 65;
+const int ALIGN_SPEED           = 75;
+const int POST_TURN_SPEED       = 63;
 
 // ===================== TIMING =====================
 const unsigned long START_BOX_CONFIRM_MS  = 300;
-const unsigned long START_EXIT_TIMEOUT_MS = 1200;
+const unsigned long START_EXIT_TIMEOUT_MS = 1800;
 
-const unsigned long NODE_LOCKOUT_MS       = 105;
+const unsigned long NODE_LOCKOUT_MS       = 85;
 const unsigned long END_CONFIRM_MS        = 260;
-const unsigned long PROBE_ENTRY_MS        = 55;
-const unsigned long PROBE_STRAIGHT_MS     = 90;
+const unsigned long PROBE_ENTRY_MS        = 45;
+const unsigned long PROBE_STRAIGHT_MS     = 105;
 
-const unsigned long DEAD_END_PROBE_MS     = 150;
+const unsigned long DEAD_END_PROBE_MS     = 175;
 
-const unsigned long LOST_LINE_TIMEOUT_MS  = 180;
-
-const unsigned long DEAD_END_GRACE_AFTER_NODE_MS = 480;
-const unsigned long TURN_TIMEOUT_MS       = 1000;
-const unsigned long UTURN_TIMEOUT_MS      = 1500;
-const unsigned long ALIGN_TIMEOUT_MS      = 3000;
-const unsigned long ALIGN_STABLE_MS       = 40;
+const unsigned long LOST_LINE_TIMEOUT_MS  = 190;
+const unsigned long TURN_TIMEOUT_MS       = 3000;
+const unsigned long UTURN_TIMEOUT_MS      = 4000;
+const unsigned long ALIGN_TIMEOUT_MS      = 4000;
+const unsigned long ALIGN_STABLE_MS       = 70;
 
 const unsigned long POST_TURN_FORWARD_MS  = 60;
 const unsigned long POST_TURN_SETTLE_MS   = 20;
 
-const uint8_t PROBE_BURST_N        = 12;
-const uint8_t MAX_EXIT_CANDIDATES  = 32;
-const unsigned long RECORD_RESOLVE_MS = 220;
-
 // ===================== STORAGE =====================
 const int MAX_NODES = 200;
 
-// rawPath: L/S/R at junctions; B = dead end / U-turn
+// raw training decisions (real junction decisions only)
+// L = chose left at real intersection
+// S = chose straight at real intersection
+// R = chose right at real intersection
+// B = dead end / U-turn
 char rawPath[MAX_NODES + 1];
 char optimalPath[MAX_NODES + 1];
 
@@ -77,18 +75,6 @@ unsigned int segmentTimeMs[MAX_NODES];
 int rawPathLen = 0;
 int optimalPathLen = 0;
 int solveStepIndex = 0;
-
-bool pendingTrainingRecord = false;
-unsigned int pendingSegMs = 0;
-char pendingTurn = 0;
-uint8_t pendingPrimaryMask = 0;
-unsigned long pendingRecordStartMs = 0;
-bool recordWitnessLeft = false;
-bool recordWitnessRight = false;
-
-uint8_t candMask[MAX_EXIT_CANDIDATES];
-uint8_t candVotes[MAX_EXIT_CANDIDATES];
-uint8_t candCount = 0;
 
 // ===================== EEPROM LAYOUT =====================
 const uint32_t EEPROM_MAGIC   = 0x4D415A45UL; // "MAZE"
@@ -202,140 +188,6 @@ void clearRamPaths()
   memset(segmentTimeMs, 0, sizeof(segmentTimeMs));
 
   segmentStartMs = millis();
-
-  pendingTrainingRecord = false;
-  candCount = 0;
-  pendingSegMs = 0;
-  pendingTurn = 0;
-  pendingPrimaryMask = 0;
-  recordWitnessLeft = false;
-  recordWitnessRight = false;
-}
-
-char selectTurn(bool foundLeft, bool foundStraight, bool foundRight);
-
-char turnFromMaskLHR(uint8_t mask)
-{
-  bool L = (mask & 0x01) != 0;
-  bool S = (mask & 0x02) != 0;
-  bool R = (mask & 0x04) != 0;
-  return selectTurn(L, S, R);
-}
-
-void addExitCandidateVote(uint8_t mask)
-{
-  for (uint8_t i = 0; i < candCount; i++) {
-    if (candMask[i] == mask) {
-      if (candVotes[i] < 255) {
-        candVotes[i]++;
-      }
-      return;
-    }
-  }
-  if (candCount >= MAX_EXIT_CANDIDATES) {
-    return;
-  }
-  candMask[candCount] = mask;
-  candVotes[candCount] = 1;
-  candCount++;
-}
-
-void buildExitCandidatesFromBursts(const bool *burstL,
-                                   const bool *burstR,
-                                   const bool *burstS,
-                                   uint8_t n)
-{
-  candCount = 0;
-  for (uint8_t ki = 0; ki < n; ki++) {
-    for (uint8_t mj = 0; mj < n; mj++) {
-      uint8_t m = 0;
-      if (burstL[ki]) {
-        m |= 0x01;
-      }
-      if (burstS[mj]) {
-        m |= 0x02;
-      }
-      if (burstR[ki]) {
-        m |= 0x04;
-      }
-      addExitCandidateVote(m);
-    }
-  }
-}
-
-void startPendingTrainingRecord(uint8_t primaryMask, char turn, unsigned int segMs)
-{
-  pendingTrainingRecord = true;
-  pendingPrimaryMask = primaryMask;
-  pendingTurn = turn;
-  pendingSegMs = segMs;
-  recordWitnessLeft = false;
-  recordWitnessRight = false;
-  pendingRecordStartMs = millis();
-}
-
-void trainingRecordAccumulateWitness()
-{
-  if (sensors.v[0] || sensors.v[1]) {
-    recordWitnessLeft = true;
-  }
-  if (sensors.v[3] || sensors.v[4]) {
-    recordWitnessRight = true;
-  }
-}
-
-void finalizePendingTrainingRecord(bool force)
-{
-  if (!pendingTrainingRecord) {
-    return;
-  }
-  if (!force && (millis() - pendingRecordStartMs < RECORD_RESOLVE_MS)) {
-    return;
-  }
-
-  uint8_t bestMask = pendingPrimaryMask;
-  int bestScore = -1;
-  uint8_t bestVotes = 0;
-
-  for (uint8_t i = 0; i < candCount; i++) {
-    uint8_t m = candMask[i];
-    if (turnFromMaskLHR(m) != pendingTurn) {
-      continue;
-    }
-
-    int score = (int)candVotes[i] * 3;
-    bool L = (m & 0x01) != 0;
-    bool S = (m & 0x02) != 0;
-    bool R = (m & 0x04) != 0;
-    if (L && recordWitnessLeft) {
-      score += 2;
-    }
-    if (R && recordWitnessRight) {
-      score += 2;
-    }
-    if (S && (recordWitnessLeft || recordWitnessRight)) {
-      score += 1;
-    }
-
-    if (score > bestScore ||
-        (score == bestScore && candVotes[i] > bestVotes)) {
-      bestScore = score;
-      bestVotes = candVotes[i];
-      bestMask = m;
-    }
-  }
-
-  String msg = String("RECORD_RESOLVED mask=") +
-               exitsMaskToString(bestMask) +
-               " turn=" + String(pendingTurn) +
-               " candN=" + String(candCount) +
-               " primary=" + exitsMaskToString(pendingPrimaryMask);
-  logLine(msg);
-
-  recordNode(bestMask, pendingTurn, pendingSegMs);
-
-  pendingTrainingRecord = false;
-  candCount = 0;
 }
 
 void reportStatus()
@@ -527,6 +379,7 @@ bool isPerfectCenterPattern()
          !sensors.v[4];
 }
 
+// candidate node = maybe intersection / cross / finish region
 bool nodeCandidateNow()
 {
   if (sensors.allBlack) return true;
@@ -803,13 +656,10 @@ void handleTrainingDeadEndRecovery()
   unsigned int segMs = (unsigned int)(millis() - segmentStartMs);
 
   logLine("DEAD_END_DETECTED");
-  logLine(String("DEAD_END_RECOVERY_NO_PATH segMs=") + String(segMs));
-  recordNode(0, 'B', segMs);
 
   deadEndProbeForward();
   doTurn('B');
-
-  segmentStartMs = millis();
+  recordNode(0, 'B', segMs);
 
   lastLineSeenMs = millis();
   lastNodeHandledMs = millis();
@@ -910,8 +760,6 @@ void onTrainingComplete()
   stopMotors();
   setStage("TRAINING_COMPLETE");
 
-  finalizePendingTrainingRecord(true);
-
   buildOptimalPath();
   bool saved = savePathsToEEPROM();
 
@@ -942,35 +790,16 @@ void onSolvingComplete()
 // ===================== INTERSECTION INSPECTION =====================
 void inspectAndHandleNodeTraining()
 {
-  finalizePendingTrainingRecord(true);
-
   setStage("TRAINING_NODE_CHECK");
-
-  bool burstL[PROBE_BURST_N];
-  bool burstR[PROBE_BURST_N];
-  bool burstS[PROBE_BURST_N];
 
   driveForward(PROBE_SPEED);
   delay(PROBE_ENTRY_MS);
-
   readSensors();
-  bool entryAllBlack = sensors.allBlack;
-  burstL[0] = sensors.v[0] || sensors.v[1];
-  burstR[0] = sensors.v[3] || sensors.v[4];
-  for (uint8_t i = 1; i < PROBE_BURST_N; i++) {
-    readSensors();
-    burstL[i] = sensors.v[0] || sensors.v[1];
-    burstR[i] = sensors.v[3] || sensors.v[4];
-  }
 
-  bool foundLeft  = false;
-  bool foundRight = false;
-  for (uint8_t i = 0; i < PROBE_BURST_N; i++) {
-    foundLeft = foundLeft || burstL[i];
-    foundRight = foundRight || burstR[i];
-  }
+  bool foundLeft  = sensors.v[0] || sensors.v[1];
+  bool foundRight = sensors.v[3] || sensors.v[4];
 
-  if (entryAllBlack) {
+  if (sensors.allBlack) {
     if (confirmEndBox()) {
       onTrainingComplete();
       return;
@@ -979,59 +808,33 @@ void inspectAndHandleNodeTraining()
 
   driveForward(PROBE_SPEED);
   delay(PROBE_STRAIGHT_MS);
-
   readSensors();
-  bool straightAllBlack = sensors.allBlack;
-  burstS[0] = sensors.v[1] || sensors.v[2] || sensors.v[3];
-  for (uint8_t j = 1; j < PROBE_BURST_N; j++) {
-    readSensors();
-    burstS[j] = sensors.v[1] || sensors.v[2] || sensors.v[3];
-  }
 
-  bool foundStraight = false;
-  for (uint8_t j = 0; j < PROBE_BURST_N; j++) {
-    foundStraight = foundStraight || burstS[j];
-  }
+  bool foundStraight = sensors.v[1] || sensors.v[2] || sensors.v[3];
 
-  if (straightAllBlack) {
+  if (sensors.allBlack) {
     if (confirmEndBox()) {
       onTrainingComplete();
       return;
     }
   }
 
-  buildExitCandidatesFromBursts(burstL, burstR, burstS, PROBE_BURST_N);
-
   uint8_t exitsMask = 0;
-  if (foundLeft) {
-    exitsMask |= 0x01;
-  }
-  if (foundStraight) {
-    exitsMask |= 0x02;
-  }
-  if (foundRight) {
-    exitsMask |= 0x04;
-  }
+  if (foundLeft)     exitsMask |= 0x01;
+  if (foundStraight) exitsMask |= 0x02;
+  if (foundRight)    exitsMask |= 0x04;
 
   char turnTaken = selectTurn(foundLeft, foundStraight, foundRight);
   int choices = (foundLeft ? 1 : 0) + (foundStraight ? 1 : 0) + (foundRight ? 1 : 0);
 
   unsigned int segMs = (unsigned int)(millis() - segmentStartMs);
 
-  if (choices >= 2) {
-    logLine(String("RECORD_DEFER candidates=") + String(candCount) +
-            " primary=" + exitsMaskToString(exitsMask) +
-            " turn=" + String(turnTaken));
-
+  if (choices >= 2 || turnTaken == 'B') {
     doTurn(turnTaken);
-    startPendingTrainingRecord(exitsMask, turnTaken, segMs);
-  } else if (choices == 1) {
+    recordNode(exitsMask, turnTaken, segMs);
+  } else {
     logLine(String("FORCED_TURN=") + turnTaken + " exits=" + exitsMaskToString(exitsMask));
     doTurn(turnTaken);
-  } else {
-    logLine(String("PROBE_ZERO_EXITS_UNRECORDED segMs=") + String(segMs));
-    doTurn(turnTaken);
-    segmentStartMs = millis();
   }
 
   lastLineSeenMs = millis();
@@ -1134,7 +937,7 @@ bool leaveStartAreaAndFindLine(RobotState nextState)
 
       segmentStartMs = millis();
       lastLineSeenMs = millis();
-      lastNodeHandledMs = millis();
+      lastNodeHandledMs = 0;
       startBoxSeenMs = 0;
 
       state = nextState;
@@ -1199,21 +1002,12 @@ void handleTraining()
 {
   readSensors();
 
-  if (pendingTrainingRecord) {
-    trainingRecordAccumulateWitness();
-    finalizePendingTrainingRecord(false);
-  }
-
   if (persistentNoLine()) {
-    if (millis() - lastNodeHandledMs >= DEAD_END_GRACE_AFTER_NODE_MS) {
-      finalizePendingTrainingRecord(true);
-      handleTrainingDeadEndRecovery();
-      return;
-    }
+    handleTrainingDeadEndRecovery();
+    return;
   }
 
   if (millis() - lastNodeHandledMs >= NODE_LOCKOUT_MS && nodeCandidateNow()) {
-    finalizePendingTrainingRecord(true);
     stopMotors();
     inspectAndHandleNodeTraining();
     return;

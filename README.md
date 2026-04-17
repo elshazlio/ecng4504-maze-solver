@@ -7,7 +7,7 @@
 
 ## Abstract
 
-This project is an **autonomous line-following robot** that **learns** an unknown maze in a training pass and later **executes a shortened turn sequence** to reach the goal efficiently. A **PC host** connects over **Bluetooth Low Energy (BLE)** to issue commands, stream status, and visualize behavior. On-robot software is a single Arduino sketch (`working_code.ino`) built around **discrete line following** (no PID), **left-hand-rule** decisions at intersections, **in-place path simplification**, and **EEPROM** persistence of the optimized path.
+This project is an **autonomous line-following robot** that **learns** an unknown maze in a training pass and later **executes a shortened turn sequence** to reach the goal efficiently. A **PC host** connects over **Bluetooth** (BLE with HM-10, or **Bluetooth Classic SPP** with a ZS-040 / HC-05) to issue commands, stream status, and visualize behavior. On-robot software is a single Arduino sketch (`working_code.ino`) built around **discrete line following** (no PID), **left-hand-rule** decisions at intersections, **in-place path simplification**, and **EEPROM** persistence of the optimized path.
 
 ---
 
@@ -16,7 +16,7 @@ This project is an **autonomous line-following robot** that **learns** an unknow
 We treated the work as a loop of **measure → interpret → act → log**, repeated until the vehicle behaved reliably on real tape and real junction geometry.
 
 1. **Hardware and sensing**  
-   We brought up **five reflective sensors** (left-to-right array), **differential drive** via motor drivers, and **BLE (HM-10 on `Serial1`)** so the laptop could see the same telemetry as USB debug.
+   We brought up **five reflective sensors** (left-to-right array), **differential drive** via motor drivers, and **wireless UART on `Serial1`** (HM-10 BLE or ZS-040 / HC-05 classic) so the laptop could see the same telemetry as USB debug.
 
 2. **Baseline motion**  
    Before worrying about mapping, we stabilized **line following** using **fixed PWM steps** and simple rules from the sensor pattern (centered forward, soft correct near center, stronger correct when the line moves under an outer sensor). This deliberately avoids PID tuning loops in favor of predictable, repeatable motion on our course.
@@ -37,7 +37,7 @@ We treated the work as a loop of **measure → interpret → act → log**, repe
    In **solving**, the robot walks the **optimized** sequence: at each true decision node it executes the next character of `optimalPath`. If sensor classification and the stored path disagree, it logs a **mismatch** and falls back to the left-hand choice so the run degrades safely.
 
 8. **Host software**  
-   We built a **FastAPI** dashboard with **WebSockets** and **Bleak**-based BLE (`Bluetooth stuff/maze_dashboard/`) plus a small **Bun** log viewer (`Bluetooth stuff/log-viewer/`) to command `TRAIN` / `START`, watch logs, and debug link issues.
+   We built a **FastAPI** dashboard with **WebSockets** (`Bluetooth stuff/maze_dashboard/`) — **Bleak** for BLE, or **pyserial** to a paired **Bluetooth SPP** serial port on macOS — plus a small **Bun** log viewer (`Bluetooth stuff/log-viewer/`) to command `TRAIN` / `START`, watch logs, and debug link issues.
 
 **Diagrams in this repo:** high-level software structure is in [`system_architecture.png`](system_architecture.png); the PCB is exported as [`PCB Schematic.png`](PCB Schematic.png). Team and roles are in [`team.md`](team.md).
 
@@ -69,7 +69,7 @@ The **raw** training path includes detours. **`buildOptimalPath`** repeatedly re
 
 ### Commands and telemetry
 
-**USB and BLE** share the same command set (`TRAIN`, `START`/`SOLVE`, `STATUS`, `DUMP`, `LOAD`, `CLEAR`, `STOP`). Status lines (`STATE`, `STAGE`, paths, node logs) go to both streams for the dashboard and debugging.
+**USB and wireless UART** share the same command set (`TRAIN`, `START`/`SOLVE`, `STATUS`, `DUMP`, `LOAD`, `CLEAR`, `STOP`). Status lines (`STATE`, `STAGE`, paths, node logs) go to both streams for the dashboard and debugging.
 
 ---
 
@@ -101,11 +101,28 @@ python3 -m venv .venv && source .venv/bin/activate && pip install -r requirement
 uvicorn app:app --reload --host 127.0.0.1 --port 8765
 ```
 
+**ZS-040 / HC-05 on macOS (Bluetooth Classic SPP)** — pair the module in **System Settings → Bluetooth**, then pick the outgoing serial device (names vary; often under `/dev/cu.*`):
+
+```bash
+ls /dev/cu.*
+export MAZE_BT_SERIAL=/dev/cu.YourModule-DevB
+export MAZE_BT_BAUD=9600
+cd "Bluetooth stuff/maze_dashboard"
+source .venv/bin/activate
+uvicorn app:app --reload --host 127.0.0.1 --port 8765
+```
+
+After a successful connection, you can use `export MAZE_BT_SERIAL=last` to reuse `bt_serial_last.json` beside `app.py`. Leave `MAZE_BT_SERIAL` unset to use **BLE** (HM-10) with Bleak as before.
+
+**Path preview (SVG map):** The dashboard builds a **turtle-geometry** polyline from path strings and from **training/solve** turn lines in the log (`FORCED_TURN`, `SOLVE_FORCED_TURN`, `SOLVE_NODE`, etc.). The preview appends **one grid segment after the last logged turn** so the **final leg** and **forced** corridor exits show the same corners you see on the track; that step is **visualization-only** and does not change what the robot records or executes. Regression checks for this live in `Bluetooth stuff/maze_dashboard/test_map_visualization.py` (run with `python -m unittest` from that folder, using the project venv).
+
 **Log viewer** (see `Bluetooth stuff/log-viewer/package.json` for scripts)
 
 ```bash
 cd "Bluetooth stuff/log-viewer"
 bun install
+# Use the same MAZE_BT_SERIAL in this shell so the Python helper can open the port
+export MAZE_BT_SERIAL=/dev/cu.YourModule-DevB
 bun run serve
 ```
 

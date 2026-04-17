@@ -1,13 +1,20 @@
 """
-Maze robot dashboard: BLE (HM-10 Nordic UART) + FastAPI + WebSocket.
-Pairs with working_code.ino (9600 baud Serial1 -> HM-10).
+Maze robot dashboard: FastAPI + WebSocket + wireless UART to the robot.
+
+Transports (pick one):
+  • Bluetooth Classic SPP (ZS-040 / HC-05 on macOS): set MAZE_BT_SERIAL to a callout device, e.g.
+      export MAZE_BT_SERIAL=/dev/cu.HC-05-DevB
+      export MAZE_BT_BAUD=9600
+    Pair the module in System Settings → Bluetooth first. Use `ls /dev/cu.*` to find the port name.
+    After a successful session, `MAZE_BT_SERIAL=last` reuses `bt_serial_last.json` beside this file.
+  • BLE (HM-10 / Nordic UART): leave MAZE_BT_SERIAL unset; uses Bleak as before.
 
 Run from this directory:
   python3 -m venv .venv && source .venv/bin/activate  # or Windows: .venv\\Scripts\\activate
   pip install -r requirements.txt
   uvicorn app:app --host 127.0.0.1 --port 8765
 
-Env:
+Env (BLE only, when MAZE_BT_SERIAL is not set):
   MAZE_BLE_NAME   substring(s) to match scan name, comma-separated; default matches HMSoft and BT05
   MAZE_BLE_ADDR   optional AA:BB:CC:DD:EE:FF to skip scan entirely (fastest; set once from System Report or ble_discover.py)
   MAZE_BLE_SCAN_TIMEOUT   max seconds to wait for an advertisement (default: 12); scan stops as soon as the robot is seen
@@ -16,7 +23,7 @@ Env:
   MAZE_BLE_UART_UUID   one characteristic for both directions (HM-10 FFE1 style)
   MAZE_BLE_WRITE_UUID / MAZE_BLE_NOTIFY_UUID  explicit pair (Nordic UART style)
 
-  First-time setup:  python ble_discover.py --save   (writes ble_uart_cache.json beside app.py)
+  First-time BLE setup:  python ble_discover.py --save   (writes ble_uart_cache.json beside app.py)
   After a successful connect, ble_last_device.json is written so the next run can reconnect faster.
 """
 from __future__ import annotations
@@ -33,6 +40,7 @@ from typing import Any
 
 from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+from macos_ble import resolve_ble_device_for_address
 
 try:
     from bleak import BleakClient, BleakScanner
@@ -49,6 +57,8 @@ except ImportError:
 BLE_UART_CACHE_PATH = Path(__file__).resolve().parent / "ble_uart_cache.json"
 # Written after a successful BLE connection; used to try find_device_by_address before a full name scan.
 BLE_LAST_ADDR_PATH = Path(__file__).resolve().parent / "ble_last_device.json"
+# Written after a successful Bluetooth Classic serial session (MAZE_BT_SERIAL=last).
+BT_SERIAL_LAST_PATH = Path(__file__).resolve().parent / "bt_serial_last.json"
 RUN_ARCHIVE_PATH = Path(__file__).resolve().parent / "maze_run_archive.json"
 RUN_ARCHIVE_MAX = 100
 _archive_lock = asyncio.Lock()
@@ -84,6 +94,73 @@ def _env_float(key: str, default: float) -> float:
 SCAN_TIMEOUT = _env_float("MAZE_BLE_SCAN_TIMEOUT", 12.0)
 QUICK_ADDR_TIMEOUT = _env_float("MAZE_BLE_QUICK_ADDR_TIMEOUT", 2.5)
 RECONNECT_DELAY = 2.0
+
+
+def _load_last_serial_port() -> str | None:
+    if not BT_SERIAL_LAST_PATH.is_file():
+        return None
+    try:
+        data = json.loads(BT_SERIAL_LAST_PATH.read_text(encoding="utf-8"))
+        p = str(data.get("port", "")).strip()
+        if p.startswith("/dev/"):
+            return p
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return None
+
+
+def _save_last_serial_port(port: str) -> None:
+    p = port.strip()
+    if not p.startswith("/dev/"):
+        return
+    try:
+        BT_SERIAL_LAST_PATH.write_text(
+            json.dumps({"port": p}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+
+
+def _resolve_serial_port() -> str | None:
+    raw = (os.environ.get("MAZE_BT_SERIAL") or os.environ.get("MAZE_SERIAL_PORT") or "").strip()
+    if not raw:
+        return None
+    if raw.lower() == "last":
+        return _load_last_serial_port()
+    return raw
+
+
+def _wants_serial_transport() -> bool:
+    return bool((os.environ.get("MAZE_BT_SERIAL") or os.environ.get("MAZE_SERIAL_PORT") or "").strip())
+
+
+def _print_dev_server_hints() -> None:
+    """Console hints when running uvicorn (dev or production)."""
+    print("\n[maze_dashboard] Robot link (see README for full steps):")
+    if _wants_serial_transport():
+        resolved = _resolve_serial_port()
+        port_disp = resolved if resolved else "(resolve MAZE_BT_SERIAL or use last after first good connect)"
+        print(f"  Transport: Bluetooth Classic SPP (ZS-040 / HC-05) → {port_disp}")
+        print("  macOS: pair the module first; open /dev/cu.* (callout), not /dev/tty.*")
+        print("  Env: MAZE_BT_SERIAL, MAZE_BT_BAUD (default 9600); MAZE_BT_SERIAL=last uses bt_serial_last.json")
+    else:
+        print("  Transport: BLE via Bleak (HM-10 / Nordic UART). Leave MAZE_BT_SERIAL unset.")
+        print("  First-time UUIDs: python ble_discover.py --save")
+    print("  Tip: same command/telemetry protocol as USB — only the radio path changes.\n")
+
+
+def _serial_help_hint() -> str:
+    try:
+        dev = Path("/dev")
+        if dev.is_dir():
+            cus = sorted(dev.glob("cu.*"))
+            if cus:
+                tail = ", ".join(str(p) for p in cus[-5:])
+                return f"; paired SPP ports often look like {tail}"
+    except OSError:
+        pass
+    return ""
 
 
 def _char_can_write(char: Any) -> bool:
@@ -200,6 +277,32 @@ def path_to_polyline(path: str) -> list[tuple[float, float]]:
     return pts
 
 
+def path_to_visual_polyline(path: str) -> list[tuple[float, float]]:
+    """Map-preview polyline for turn logs: start straight, then keep going after the final logged turn."""
+    x, y = 0.0, 0.0
+    dx, dy = 0.0, -1.0
+    pts: list[tuple[float, float]] = [(x, y)]
+    moved = False
+    for t in path.upper():
+        if t not in "LSRB":
+            continue
+        x += dx
+        y += dy
+        pts.append((x, y))
+        moved = True
+        if t == "L":
+            dx, dy = dy, -dx
+        elif t == "R":
+            dx, dy = -dy, dx
+        elif t == "B":
+            dx, dy = -dx, -dy
+    if moved:
+        x += dx
+        y += dy
+        pts.append((x, y))
+    return pts
+
+
 # working_code.ino prints STATE: <name>; legacy firmware used STATUS:PHASE:detail.
 _ROBOT_STATE_TO_PHASE: dict[str, str] = {
     "IDLE_WAIT_CMD": "IDLE",
@@ -278,6 +381,8 @@ class DashboardState:
     max_logs: int = 800
     ble_connected: bool = False
     ble_label: str = "disconnected"
+    # "ble" | "serial" — which radio path the backend is using (UI label).
+    link_transport: str = "ble"
     path_raw: str = ""
     path_opt: str = ""
     training_turns: list[str] = field(default_factory=list)
@@ -436,11 +541,11 @@ class DashboardState:
         return None
 
     def to_view(self) -> dict[str, Any]:
-        raw_pl = path_to_polyline(self.path_raw) if self.path_raw else []
-        opt_pl = path_to_polyline(self.path_opt) if self.path_opt else []
+        raw_pl = path_to_visual_polyline(self.path_raw) if self.path_raw else []
+        opt_pl = path_to_visual_polyline(self.path_opt) if self.path_opt else []
         partial_seq = self.training_geo_path or "".join(self.training_turns)
-        partial_pl = path_to_polyline(partial_seq) if partial_seq else []
-        solve_geo_pl = path_to_polyline(self.solve_geo_path) if self.solve_geo_path else []
+        partial_pl = path_to_visual_polyline(partial_seq) if partial_seq else []
+        solve_geo_pl = path_to_visual_polyline(self.solve_geo_path) if self.solve_geo_path else []
         mn_x, mn_y, mx_x, mx_y = bounds_of_polylines(raw_pl, opt_pl, partial_pl, solve_geo_pl)
         pad = 2.0
         min_x = mn_x - pad
@@ -453,6 +558,7 @@ class DashboardState:
         return {
             "ble_connected": self.ble_connected,
             "ble_label": self.ble_label,
+            "link_transport": self.link_transport,
             "logs": self.logs[-400:],
             "phase": self.phase,
             "last_status_detail": self.last_status_detail,
@@ -495,6 +601,8 @@ class DashboardState:
 
 
 state = DashboardState()
+if _wants_serial_transport():
+    state.link_transport = "serial"
 clients: set[WebSocket] = set()
 ble_task: asyncio.Task | None = None
 out_queue: asyncio.Queue[str] = asyncio.Queue()
@@ -558,16 +666,20 @@ def _load_last_ble_address() -> str | None:
         data = json.loads(BLE_LAST_ADDR_PATH.read_text(encoding="utf-8"))
         a = str(data.get("address", "")).strip()
         if len(a.replace(":", "").replace("-", "")) >= 8:
-            return a.replace("-", ":")
+            compact = a.replace(":", "").replace("-", "")
+            return a.replace("-", ":") if len(compact) == 12 else a
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
         pass
     return None
 
 
 def _save_last_ble_address(address: str) -> None:
-    addr = address.strip().replace("-", ":")
+    addr = address.strip()
     if len(addr.replace(":", "")) < 8:
         return
+    compact = addr.replace(":", "").replace("-", "")
+    if len(compact) == 12:
+        addr = addr.replace("-", ":").upper()
     try:
         BLE_LAST_ADDR_PATH.write_text(
             json.dumps({"address": addr}, indent=2) + "\n",
@@ -589,12 +701,12 @@ def _adv_matches_robot_name(d: Any, ad: Any) -> bool:
     return False
 
 
-async def find_robot_ble_device() -> tuple[Any | None, str]:
+async def find_robot_ble_device() -> tuple[Any | None, str, str | None]:
     """
     Prefer last successful address (short timeout), then scan until name matches (stops on first match).
     """
     if BleakScanner is None:
-        return None, ""
+        return None, "", None
 
     use_last = os.environ.get("MAZE_BLE_USE_LAST_ADDR", "1").strip().lower() not in (
         "0",
@@ -604,17 +716,121 @@ async def find_robot_ble_device() -> tuple[Any | None, str]:
     if use_last:
         last = _load_last_ble_address()
         if last:
+            direct = await resolve_ble_device_for_address(last)
+            if direct:
+                return direct, (direct.name or ""), last
             found = await BleakScanner.find_device_by_address(last, timeout=QUICK_ADDR_TIMEOUT)
             if found:
-                return found, (found.name or "")
+                return found, (found.name or ""), last
 
     found = await BleakScanner.find_device_by_filter(_adv_matches_robot_name, timeout=SCAN_TIMEOUT)
     if found:
-        return found, (found.name or "")
-    return None, ""
+        return found, (found.name or ""), found.address
+    return None, "", None
+
+
+async def serial_connection_loop() -> None:
+    """Bluetooth Classic (HC-05 / ZS-040) via pyserial — pair in macOS Bluetooth settings, then open /dev/cu.*."""
+    try:
+        import serial as pyserial  # pyserial
+    except ImportError:
+        state.link_transport = "serial"
+        state.ble_label = "pyserial not installed (pip install pyserial)"
+        state.ble_connected = False
+        await broadcast_state()
+        return
+
+    try:
+        baud = int(os.environ.get("MAZE_BT_BAUD", "9600") or 9600)
+    except ValueError:
+        baud = 9600
+
+    while True:
+        state.link_transport = "serial"
+        state.ble_connected = False
+        port = _resolve_serial_port()
+        if not port:
+            state.ble_label = "set MAZE_BT_SERIAL=/dev/cu.… or MAZE_BT_SERIAL=last"
+            await broadcast_state()
+            await asyncio.sleep(RECONNECT_DELAY)
+            continue
+
+        state.ble_label = f"opening {port}…"
+        await broadcast_state()
+
+        if not Path(port).exists():
+            state.ble_label = f"missing {port}{_serial_help_hint()}"
+            await broadcast_state()
+            await asyncio.sleep(RECONNECT_DELAY)
+            continue
+
+        try:
+            ser = pyserial.Serial(port, baud, timeout=0.3)
+        except Exception as e:
+            state.append_log(f"[dashboard] serial open error: {e!r}")
+            state.ble_label = f"error: {e}"
+            await broadcast_state()
+            await asyncio.sleep(RECONNECT_DELAY)
+            continue
+
+        state.append_log(f"[dashboard] Bluetooth SPP serial {port} @ {baud} baud")
+        state.ble_connected = True
+        state.ble_label = f"connected {port}"
+        _save_last_serial_port(port)
+        await broadcast_state()
+
+        async def pump_writes() -> None:
+            while ser.is_open:
+                payload = await write_queue.get()
+                try:
+                    await asyncio.to_thread(ser.write, payload)
+                    await asyncio.to_thread(ser.flush)
+                except Exception:
+                    break
+
+        writer = asyncio.create_task(pump_writes())
+        try:
+            while ser.is_open:
+                raw = await asyncio.to_thread(ser.readline)
+                if not raw:
+                    await asyncio.sleep(0.02)
+                    continue
+                line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+                state.ingest_line(line)
+                try:
+                    out_queue.put_nowait(line)
+                except Exception:
+                    pass
+                await broadcast_state()
+        except Exception as e:
+            state.append_log(f"[dashboard] serial error: {e!r}")
+            state.ble_label = f"error: {e}"
+        finally:
+            writer.cancel()
+            try:
+                await writer
+            except asyncio.CancelledError:
+                pass
+            try:
+                ser.close()
+            except Exception:
+                pass
+
+        state.ble_connected = False
+        state.ble_label = "disconnected"
+        await broadcast_state()
+        await asyncio.sleep(RECONNECT_DELAY)
+
+
+async def link_connection_loop() -> None:
+    if _wants_serial_transport():
+        await serial_connection_loop()
+    else:
+        await ble_connection_loop()
 
 
 async def ble_connection_loop() -> None:
+    state.link_transport = "ble"
     if BleakClient is None or BleakScanner is None:
         state.ble_label = "bleak not installed"
         state.ble_connected = False
@@ -624,24 +840,32 @@ async def ble_connection_loop() -> None:
     addr_filter = os.environ.get("MAZE_BLE_ADDR", "").strip().upper()
 
     while True:
+        state.link_transport = "ble"
         state.ble_connected = False
         state.ble_label = "scanning…"
         await broadcast_state()
 
         address: str | None = None
         name_log = ""
+        connect_target: Any | None = None
+        saved_identifier: str | None = None
 
         try:
             if addr_filter and len(addr_filter) >= 12:
                 address = addr_filter.replace("-", ":")
+                connect_target = await resolve_ble_device_for_address(address)
+                saved_identifier = address
+                if connect_target is not None:
+                    name_log = connect_target.name or ""
                 state.ble_label = f"connecting {address}"
             else:
-                dev, name_log = await find_robot_ble_device()
+                dev, name_log, saved_identifier = await find_robot_ble_device()
                 if not dev:
                     state.ble_label = f"no device (match {','.join(_adv_substrings())})"
                     await broadcast_state()
                     await asyncio.sleep(RECONNECT_DELAY)
                     continue
+                connect_target = dev
                 address = dev.address
 
             state.ble_label = f"connecting {name_log or address}"
@@ -661,13 +885,13 @@ async def ble_connection_loop() -> None:
                     except Exception:
                         pass
 
-            async with BleakClient(address) as client:
+            async with BleakClient(connect_target or address) as client:
                 write_uuid, notify_uuid = await select_uart_by_notify_probe(client, on_notify)
                 state.append_log(f"[dashboard] BLE UART write={write_uuid} notify={notify_uuid}")
 
                 state.ble_connected = True
                 state.ble_label = f"connected {name_log or address}"
-                _save_last_ble_address(address)
+                _save_last_ble_address(saved_identifier or address or "")
                 await broadcast_state()
 
                 async def pump_writes() -> None:
@@ -1205,7 +1429,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
     <header class="masthead">
       <div class="brand">
         <span class="brand-kicker">Live link</span>
-        <h1>Maze robot · BLE dashboard</h1>
+        <h1>Maze robot · dashboard</h1>
       </div>
       <div class="masthead-right">
         <button type="button" class="cmd secondary" id="archive-toggle-btn">Saved runs</button>
@@ -1315,7 +1539,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
   const archiveDeleteBtn = document.getElementById("archive-delete-btn");
   const archiveCopyLogBtn = document.getElementById("archive-copy-log");
   const pauseBtn = document.getElementById("pause-btn");
-  let lastDashboardState = { ble_connected: false, robot_paused: false, phase: "" };
+  let lastDashboardState = { ble_connected: false, robot_paused: false, phase: "", link_transport: "ble" };
   let lastLogLines = [];
   let selectedArchiveId = null;
   let archiveDetailLines = [];
@@ -1383,16 +1607,20 @@ INDEX_HTML = r"""<!DOCTYPE html>
   function renderStatusPills(data, wsOpen) {
     const ble = data.ble_connected;
     const label = (data.ble_label || "").replace(/</g, "");
+    const linkKind = (data.link_transport || "ble").toLowerCase();
+    const linkPill = linkKind === "serial" ? "Serial" : "BLE";
 
     let dotClass = "bad";
     if (ble) dotClass = "ok";
-    else if (/scanning|connecting/i.test(label)) dotClass = "scan";
+    else if (/scanning|connecting|opening/i.test(label)) dotClass = "scan";
 
-    const bleTitle = wsOpen ? "BLE" : "WebSocket disconnected";
+    const linkTitle = wsOpen
+      ? (linkKind === "serial" ? "Bluetooth classic (SPP serial)" : "Bluetooth Low Energy")
+      : "WebSocket disconnected";
     const rows = [
-      "<div class=\"pill\" title=\"" + escapeText(bleTitle) + "\">",
+      "<div class=\"pill\" title=\"" + escapeText(linkTitle) + "\">",
       "<span class=\"pill-dot " + dotClass + "\"></span>",
-      "<span class=\"pill-label\">BLE</span>",
+      "<span class=\"pill-label\">" + escapeText(linkPill) + "</span>",
       "<span class=\"pill-value\">" + escapeText(label) + "</span>",
       "</div>"
     ];
@@ -1416,7 +1644,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
     ws.onopen = () => {
       wsHadOpen = true;
       setButtonsEnabled(false);
-      renderStatusPills({ ble_connected: false, ble_label: "waiting…" }, true);
+      renderStatusPills({ ble_connected: false, ble_label: "waiting…", link_transport: lastDashboardState.link_transport || "ble" }, true);
     };
     ws.onclose = () => {
       setButtonsEnabled(false);
@@ -1425,7 +1653,12 @@ INDEX_HTML = r"""<!DOCTYPE html>
     };
     ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
-      if (msg.type === "state") render(msg.data);
+      if (msg.type === "state") {
+      if (msg.data && msg.data.link_transport) {
+        lastDashboardState.link_transport = msg.data.link_transport;
+      }
+      render(msg.data);
+    }
     };
     document.querySelectorAll("button.cmd[data-cmd]").forEach((btn) => {
       btn.onclick = () => {
@@ -1928,8 +2161,9 @@ async def api_delete_run(run_id: str) -> dict[str, Any]:
 
 @app.on_event("startup")
 async def startup() -> None:
+    _print_dev_server_hints()
     global ble_task
-    ble_task = asyncio.create_task(ble_connection_loop())
+    ble_task = asyncio.create_task(link_connection_loop())
 
 
 @app.on_event("shutdown")

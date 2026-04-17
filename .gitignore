@@ -14,6 +14,7 @@ Bluetooth stuff/maze_dashboard/.venv/
 Bluetooth stuff/maze_dashboard/ble_last_device.json
 Bluetooth stuff/maze_dashboard/maze_run_archive.json
 Bluetooth stuff/maze_dashboard/ble_uart_cache.json
+Bluetooth stuff/maze_dashboard/bt_serial_last.json
 Bluetooth stuff/maze_dashboard/link_settings.json
 
 # Legacy venv under Bluetooth stuff root
@@ -45,8 +46,12 @@ left_turn_regression_test.cpp
 
 # Extra diagrams / dev notes not in the published deliverable set
 Architecture Diagram Only.docx
+~$*.docx
 Maze.png
 DEV-SERVERS.md
+
+# Local Arduino compile scratch folders
+tmp_compile_verify.*/
 
 # Redundant zip (same Fusion archive as `3d design/chasis.f3z`)
 3d design-20260416T210406Z-3-001.zip

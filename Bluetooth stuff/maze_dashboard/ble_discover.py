@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from bleak import BleakClient, BleakScanner
+from macos_ble import resolve_ble_device_for_address
 
 DEFAULT_NAME_SUBSTRINGS: tuple[str, ...] = ("HMSOFT", "BT05")
 
@@ -79,6 +80,8 @@ def pick_uart_recommendation(client: BleakClient) -> tuple[str, str] | None:
 
 
 async def run(addr: str | None, save: bool) -> None:
+    connect_target: Any | None = None
+
     if not addr or len(addr.replace(":", "")) < 10:
         print("Scanning for names matching", ",".join(_adv_substrings()), "...")
         chosen = await BleakScanner.find_device_by_filter(adv_matches_name, timeout=SCAN_TIMEOUT)
@@ -89,13 +92,15 @@ async def run(addr: str | None, save: bool) -> None:
                 print(" ", d.address, repr(d.name))
             sys.exit(1)
         addr = chosen.address
+        connect_target = chosen
         print("Using", addr, repr(chosen.name))
     else:
         addr = addr.replace("-", ":")
+        connect_target = await resolve_ble_device_for_address(addr)
         print("Using address", addr)
 
     print("Connecting...")
-    async with BleakClient(addr) as client:
+    async with BleakClient(connect_target or addr) as client:
         print("Connected.\n")
         for svc in client.services:
             print("Service", svc.uuid, "-", svc.description)

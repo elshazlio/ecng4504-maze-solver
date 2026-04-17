@@ -3,13 +3,16 @@ import { join } from "path";
 const BLUETOOTH_DIR = join(import.meta.dir, "..");
 const PYTHON = join(BLUETOOTH_DIR, "venv", "bin", "python");
 const BLE_SCRIPT = join(BLUETOOTH_DIR, "ble_log_receiver.py");
-const BLE_OUTAGE_MODE = true;
+/** Set false to run ble_log_receiver.py (needs MAZE_BT_SERIAL + paired HC-05 / ZS-040). */
+const BLE_OUTAGE_MODE = false;
 const clients = new Set<ServerWebSocket<unknown>>();
 
 let currentStatus = {
   type: "status",
   state: BLE_OUTAGE_MODE ? "offline" : "searching",
-  message: BLE_OUTAGE_MODE ? "BLE offline - HM-10 unavailable" : "Searching for HMSoft...",
+  message: BLE_OUTAGE_MODE
+    ? "Log viewer idle — set MAZE_BT_SERIAL for ZS-040"
+    : "Connecting (Bluetooth SPP serial)…",
 };
 let bleProcess: ReturnType<typeof Bun.spawn> | null = null;
 let restartTimer: ReturnType<typeof setTimeout> | null = null;
@@ -26,7 +29,7 @@ function handleBackendEvent(event: Record<string, unknown>) {
     currentStatus = {
       type: "status",
       state: String(event.state ?? "searching"),
-      message: String(event.message ?? "Searching for HMSoft..."),
+      message: String(event.message ?? "Waiting for telemetry…"),
       ...(event.error ? { error: String(event.error) } : {}),
     };
   }
@@ -91,8 +94,8 @@ function startBleSupervisor() {
     currentStatus = {
       type: "status",
       state: "offline",
-      message: "BLE offline - HM-10 unavailable",
-      error: "Temporary outage: suspected 5V overvoltage damage. Use USB serial telemetry.",
+      message: "Log viewer offline",
+      error: "Set BLE_OUTAGE_MODE false and export MAZE_BT_SERIAL=/dev/cu.…",
     };
     broadcast(currentStatus);
     return;
@@ -102,6 +105,7 @@ function startBleSupervisor() {
     cwd: BLUETOOTH_DIR,
     stdout: "pipe",
     stderr: "pipe",
+    env: { ...process.env },
   });
 
   void readJsonLines(bleProcess.stdout, "log");
@@ -113,7 +117,7 @@ function startBleSupervisor() {
       type: "status",
       state: "retrying",
       message: "Disconnected - retrying...",
-      ...(code ? { error: `BLE process exited with code ${code}` } : {}),
+      ...(code ? { error: `Python log receiver exited with code ${code}` } : {}),
     };
     broadcast(currentStatus);
     scheduleRestart();
@@ -155,9 +159,16 @@ const server = Bun.serve({
 
 startBleSupervisor();
 
-console.log(`Log viewer: http://localhost:${server.port}`);
+console.log(`\n[log-viewer dev] http://localhost:${server.port}`);
 if (BLE_OUTAGE_MODE) {
-  console.log("BLE offline mode active - viewer will report HM-10 outage status only");
+  console.log(
+    "  Outage mode is on — set BLE_OUTAGE_MODE false in serve.ts and export MAZE_BT_SERIAL=/dev/cu.…",
+  );
 } else {
-  console.log("Auto-connects to HMSoft via Python backend (no browser BLE needed)");
+  console.log("  Telemetry: runs Bluetooth stuff/ble_log_receiver.py via:");
+  console.log(`    ${PYTHON}`);
+  console.log("  Pair ZS-040/HC-05 in macOS Bluetooth, then in this shell:");
+  console.log("    export MAZE_BT_SERIAL=/dev/cu.<device>   # ls /dev/cu.*");
+  console.log("    export MAZE_BT_BAUD=9600");
+  console.log("  If spawn fails, create venv: cd Bluetooth\\ stuff && python3 -m venv venv && ./venv/bin/pip install -r requirements.txt\n");
 }
