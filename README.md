@@ -83,11 +83,12 @@ The **raw** training path includes detours. **`buildOptimalPath`** repeatedly re
 | BLE helper scripts | [`Bluetooth stuff/ble_log_receiver.py`](Bluetooth%20stuff/ble_log_receiver.py), [`Bluetooth stuff/ble_scan.py`](Bluetooth%20stuff/ble_scan.py), [`Bluetooth stuff/requirements.txt`](Bluetooth%20stuff/requirements.txt) |
 | Bill of materials | [`component_list(1).xlsx`](component_list%281%29.xlsx) |
 | Software architecture diagram | [`system_architecture.png`](system_architecture.png) |
-| PCB schematic (image export) | [`PCB Schematic.png`](PCB%20Schematic.png) |
+| PCB schematic (image export) | [`PCB Schematic.png`](PCB%20Schematic.png) (also under [`KiCAD Stuff/`](KiCAD%20Stuff/)) |
+| KiCAD project (native) | [`KiCAD Stuff/`](KiCAD%20Stuff/) — `Embedded Project.kicad_pro`, `.kicad_sch`, `.kicad_pcb`, `.kicad_prl` |
 | Team | [`team.md`](team.md) |
 | 3D / mechanical design | [`3d design/`](3d%20design/) (Fusion 360 `.f3z`) |
 
-**KiCAD:** the repository includes the **schematic image** above. Native KiCAD project files (`.kicad_pro`, `.kicad_sch`, `.kicad_pcb`) are not in this tree; add them under a clear folder (for example `hardware/kicad/`) when you commit them.
+**KiCAD:** open **`KiCAD Stuff/Embedded Project.kicad_pro`** in **KiCad**. Local editor folders (`.history/`, `*-backups/`, lock files) are gitignored.
 
 ---
 

@@ -1,0 +1,6 @@
+# KiCAD / editor local — do not commit
+.history/
+*-backups/
+*.lck
+~*.lck
+.DS_Store
