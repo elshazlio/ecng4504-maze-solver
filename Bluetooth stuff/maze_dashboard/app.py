@@ -451,7 +451,7 @@ class DashboardState:
 
         if raw_path is not None:
             self.path_raw = raw_path
-            self.reset_training_progress()
+            self.last_node_index = -1
         elif opt_path is not None:
             self.path_opt = opt_path
         elif u.startswith("RESULT:"):
@@ -541,10 +541,21 @@ class DashboardState:
         return None
 
     def to_view(self) -> dict[str, Any]:
-        raw_pl = path_to_visual_polyline(self.path_raw) if self.path_raw else []
+        # The firmware's RAW_PATH only contains intersection turns; the full physical
+        # geometry (forced + intersection) lives in training_geo_path, so prefer it
+        # for the visualization when available. After training completes we fall back
+        # to the simplified path_raw so old/archived sessions still render something.
+        geo_training_seq = self.training_geo_path or "".join(self.training_turns)
+        if geo_training_seq:
+            raw_pl = path_to_visual_polyline(geo_training_seq)
+            partial_pl: list[tuple[float, float]] = [] if self.path_raw else raw_pl
+        elif self.path_raw:
+            raw_pl = path_to_visual_polyline(self.path_raw)
+            partial_pl = []
+        else:
+            raw_pl = []
+            partial_pl = []
         opt_pl = path_to_visual_polyline(self.path_opt) if self.path_opt else []
-        partial_seq = self.training_geo_path or "".join(self.training_turns)
-        partial_pl = path_to_visual_polyline(partial_seq) if partial_seq else []
         solve_geo_pl = path_to_visual_polyline(self.solve_geo_path) if self.solve_geo_path else []
         mn_x, mn_y, mx_x, mx_y = bounds_of_polylines(raw_pl, opt_pl, partial_pl, solve_geo_pl)
         pad = 2.0
