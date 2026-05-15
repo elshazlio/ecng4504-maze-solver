@@ -51,6 +51,7 @@ left_turn_regression_test.cpp
 # Extra diagrams / dev notes not in the published deliverable set
 Architecture Diagram Only.docx
 ~$*.docx
+~$*.xlsx
 Maze.png
 DEV-SERVERS.md
 
@@ -59,3 +60,10 @@ tmp_compile_verify.*/
 
 # Redundant zip (same Fusion archive as `3d design/chasis.f3z`)
 3d design-20260416T210406Z-3-001.zip
+
+# Phase 2 PCB submission — KiCad local history (nested .git) and automatic zip backups
+Team 5 Embedded Phase 2 Submission/Final_Version/.history/
+Team 5 Embedded Phase 2 Submission/Final_Version/Phase2-backups/
+Team 5 Embedded Phase 2 Submission/Final_Version/Untitled-backups/
+Team 5 Embedded Phase 2 Submission/Final_Version/Final_Version-backups/
+Team 5 Embedded Phase 2 Submission/Final_Version/Final Submission-backups/

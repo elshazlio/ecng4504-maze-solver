@@ -1,0 +1,467 @@
+(kicad_sch 
+  (version 20260306) 
+  (generator "eeschema") 
+  (generator_version "10.0") 
+  (uuid "732b3f58-65df-4758-8fd5-dbc662e749ea") 
+  (paper "A3") 
+  (lib_symbols) 
+  (wire 
+    (pts 
+      (xy 161.29 133.35) 
+      (xy 170.18 133.35)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "08d0a6b6-7bfe-4516-9b27-b2a984d2e031")) 
+  (wire 
+    (pts 
+      (xy 204.47 165.1) 
+      (xy 204.47 172.72)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "32430fc3-4214-49cc-8d71-8f9a864ddda9")) 
+  (wire 
+    (pts 
+      (xy 161.29 139.7) 
+      (xy 170.18 139.7)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "43cc1beb-742c-41e0-805b-cfc2096b31f5")) 
+  (wire 
+    (pts 
+      (xy 199.39 165.1) 
+      (xy 199.39 172.72)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "5c3b823c-8e47-4470-9336-61f2f282c03e")) 
+  (wire 
+    (pts 
+      (xy 209.55 165.1) 
+      (xy 209.55 172.72)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "800b61c3-6946-442f-b9bd-6de69925697c")) 
+  (wire 
+    (pts 
+      (xy 161.29 146.05) 
+      (xy 170.18 146.05)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "9bfb1100-2f74-414c-bae8-985a84c63b75")) 
+  (wire 
+    (pts 
+      (xy 223.52 125.73) 
+      (xy 229.87 125.73)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "a3596866-ce0a-4604-a91a-62e340c84d42")) 
+  (wire 
+    (pts 
+      (xy 194.31 165.1) 
+      (xy 194.31 172.72)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "b30f82cf-826b-4269-b798-7e74ccc6bf06")) 
+  (wire 
+    (pts 
+      (xy 223.52 133.35) 
+      (xy 229.87 133.35)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "b5e165a0-edbb-4c6d-bf29-6c76f35ff8e4")) 
+  (wire 
+    (pts 
+      (xy 190.5 165.1) 
+      (xy 190.5 172.72)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "b9f869f1-57b7-4a6f-b1a6-29cfc6203b44")) 
+  (wire 
+    (pts 
+      (xy 186.69 165.1) 
+      (xy 186.69 172.72)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "bde027a8-e647-411e-b38d-75ef1b3b9db0")) 
+  (wire 
+    (pts 
+      (xy 161.29 120.65) 
+      (xy 170.18 120.65)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "c61556c8-e3f0-4557-b9a1-0e19e9e46c6a")) 
+  (wire 
+    (pts 
+      (xy 161.29 127) 
+      (xy 170.18 127)) 
+    (stroke 
+      (width 0) 
+      (type default)) 
+    (uuid "ce773cb5-fb03-4407-9f30-a956005e03c8")) 
+  (sheet 
+    (at 115.57 105.41) 
+    (size 45.72 59.69) 
+    (exclude_from_sim no) 
+    (in_bom yes) 
+    (on_board yes) 
+    (dnp no) 
+    (fields_autoplaced yes) 
+    (stroke 
+      (width 0.1524) 
+      (type solid)) 
+    (fill 
+      (color 255 182 0 1)) 
+    (uuid "0eb3f027-5a61-429d-9bc4-aef0693125df") 
+    (property "Sheetname" "TCRT5000" 
+      (at 115.57 104.6984 0) 
+      (show_name no) 
+      (do_not_autoplace no) 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left bottom))) 
+    (property "Sheetfile" "TCRT5000.kicad_sch" 
+      (at 115.57 165.6846 0) 
+      (show_name no) 
+      (do_not_autoplace no) 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left top))) 
+    (pin "DOUT1" output 
+      (at 161.29 120.65 0) 
+      (uuid "940ed73d-6222-43d0-8177-99f1b11ad390") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (pin "DOUT2" output 
+      (at 161.29 127 0) 
+      (uuid "b0a9b684-5404-4d49-9d25-c2bf5a1e4915") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (pin "DOUT3" output 
+      (at 161.29 133.35 0) 
+      (uuid "768f6d10-3ca1-4865-9b12-d41b34111764") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (pin "DOUT4" output 
+      (at 161.29 139.7 0) 
+      (uuid "5fa88a04-7bd8-467a-b4f1-11d600c01bfc") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (pin "DOUT5" output 
+      (at 161.29 146.05 0) 
+      (uuid "ee8c586d-347e-4d25-9f63-5302f004c8d5") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (instances 
+      (project "Final_Version" 
+        (path "/732b3f58-65df-4758-8fd5-dbc662e749ea" 
+          (page "5"))))) 
+  (sheet 
+    (at 170.18 39.37) 
+    (size 52.07 58.42) 
+    (exclude_from_sim no) 
+    (in_bom yes) 
+    (on_board yes) 
+    (dnp no) 
+    (fields_autoplaced yes) 
+    (stroke 
+      (width 0.1524) 
+      (type solid)) 
+    (fill 
+      (color 255 23 44 1)) 
+    (uuid "1c5fc5fd-f791-4c20-a4a1-07b353133607") 
+    (property "Sheetname" "Power" 
+      (at 170.18 38.6584 0) 
+      (show_name no) 
+      (do_not_autoplace no) 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left bottom))) 
+    (property "Sheetfile" "Power.kicad_sch" 
+      (at 170.18 98.3746 0) 
+      (show_name no) 
+      (do_not_autoplace no) 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left top))) 
+    (instances 
+      (project "Final_Version" 
+        (path "/732b3f58-65df-4758-8fd5-dbc662e749ea" 
+          (page "2"))))) 
+  (sheet 
+    (at 170.18 172.72) 
+    (size 53.34 64.77) 
+    (exclude_from_sim no) 
+    (in_bom yes) 
+    (on_board yes) 
+    (dnp no) 
+    (fields_autoplaced yes) 
+    (stroke 
+      (width 0.1524) 
+      (type solid)) 
+    (fill 
+      (color 227 15 255 1)) 
+    (uuid "3fceebea-6e62-48a7-9e76-15070d2370be") 
+    (property "Sheetname" "Motor Driver" 
+      (at 170.18 172.0084 0) 
+      (show_name no) 
+      (do_not_autoplace no) 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left bottom))) 
+    (property "Sheetfile" "Motor_Driver.kicad_sch" 
+      (at 170.18 238.0746 0) 
+      (show_name no) 
+      (do_not_autoplace no) 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left top))) 
+    (pin "PA0" bidirectional 
+      (at 186.69 172.72 90) 
+      (uuid "0934665d-a83b-4aa3-9dde-44e97828f189") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (pin "PA1" bidirectional 
+      (at 190.5 172.72 90) 
+      (uuid "b8bcf4d9-c2cc-40a6-9f8f-75f85959a73d") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (pin "PA2" bidirectional 
+      (at 194.31 172.72 90) 
+      (uuid "997d9858-050a-4f48-95e4-22c009d14b98") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (pin "PA3" bidirectional 
+      (at 199.39 172.72 90) 
+      (uuid "bd5d112c-7abe-4f5a-a24d-3114e370b91a") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (pin "PH3" bidirectional 
+      (at 204.47 172.72 90) 
+      (uuid "c1a258c4-1879-48f8-807f-1ce500ec6185") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (pin "PE3" bidirectional 
+      (at 209.55 172.72 90) 
+      (uuid "f048257b-c8f1-4048-85bc-ebdfcf450d8e") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (instances 
+      (project "Final_Version" 
+        (path "/732b3f58-65df-4758-8fd5-dbc662e749ea" 
+          (page "4"))))) 
+  (sheet 
+    (at 229.87 104.14) 
+    (size 50.8 60.96) 
+    (exclude_from_sim no) 
+    (in_bom yes) 
+    (on_board yes) 
+    (dnp no) 
+    (fields_autoplaced yes) 
+    (stroke 
+      (width 0.1524) 
+      (type solid)) 
+    (fill 
+      (color 91 255 15 1)) 
+    (uuid "6ce25218-d61a-4c73-9f0a-9ce3465f9833") 
+    (property "Sheetname" "Bluetooth" 
+      (at 229.87 103.4284 0) 
+      (show_name no) 
+      (do_not_autoplace no) 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left bottom))) 
+    (property "Sheetfile" "Bluetooth.kicad_sch" 
+      (at 229.87 165.6846 0) 
+      (show_name no) 
+      (do_not_autoplace no) 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left top))) 
+    (pin "RX" bidirectional 
+      (at 229.87 125.73 180) 
+      (uuid "44ffab98-333e-4322-9f40-f456a4e763c5") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "TX" bidirectional 
+      (at 229.87 133.35 180) 
+      (uuid "4d05d53b-4b8d-4a8b-8e3a-4b9cf2da19c8") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (instances 
+      (project "Final_Version" 
+        (path "/732b3f58-65df-4758-8fd5-dbc662e749ea" 
+          (page "6"))))) 
+  (sheet 
+    (at 170.18 104.14) 
+    (size 53.34 60.96) 
+    (exclude_from_sim no) 
+    (in_bom yes) 
+    (on_board yes) 
+    (dnp no) 
+    (fields_autoplaced yes) 
+    (stroke 
+      (width 0.1524) 
+      (type solid)) 
+    (fill 
+      (color 0 122 255 1)) 
+    (uuid "88f49f14-e81c-405f-be78-28f0cc106bbf") 
+    (property "Sheetname" "MCU" 
+      (at 170.18 103.4284 0) 
+      (show_name no) 
+      (do_not_autoplace no) 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left bottom))) 
+    (property "Sheetfile" "MCU.kicad_sch" 
+      (at 170.18 165.6846 0) 
+      (show_name no) 
+      (do_not_autoplace no) 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left top))) 
+    (pin "PH3" bidirectional 
+      (at 204.47 165.1 270) 
+      (uuid "c6f48034-b389-4382-99d8-86bdb8c482f9") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "PA2" bidirectional 
+      (at 194.31 165.1 270) 
+      (uuid "d9eb5cdb-7991-4b4a-9f8a-902ff89ffd28") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "PA0" bidirectional 
+      (at 186.69 165.1 270) 
+      (uuid "8978d61c-733e-49fa-9752-4e10e9e6c9db") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "PA1" bidirectional 
+      (at 190.5 165.1 270) 
+      (uuid "9adff38e-7f7e-403d-959a-90726be47dfb") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "PA3" bidirectional 
+      (at 199.39 165.1 270) 
+      (uuid "d8d35c5a-d2c1-4cdb-b856-3c4bb9dd9410") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "PE3" bidirectional 
+      (at 209.55 165.1 270) 
+      (uuid "aa985089-7654-41ea-9ff1-4d9e9b494230") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "DOUT1" input 
+      (at 170.18 120.65 180) 
+      (uuid "7bff6303-dfda-49da-89ba-1e08c21011b5") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "DOUT2" input 
+      (at 170.18 127 180) 
+      (uuid "bdc57742-7f49-42b1-907e-b16a8e600ec0") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "DOUT3" input 
+      (at 170.18 133.35 180) 
+      (uuid "d92e4fe3-ef6a-43af-8ac8-0f99d053b059") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "DOUT4" input 
+      (at 170.18 139.7 180) 
+      (uuid "4caf81ae-8580-4ea8-b383-0d0b2638d201") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "DOUT5" input 
+      (at 170.18 146.05 180) 
+      (uuid "9a14ee95-a6f7-4401-939e-4c4853b7d953") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify left))) 
+    (pin "RX" bidirectional 
+      (at 223.52 125.73 0) 
+      (uuid "cf08d1a5-70c3-424c-8ff5-8a4701ecd2ae") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (pin "TX" bidirectional 
+      (at 223.52 133.35 0) 
+      (uuid "3d8b0328-9ee3-404b-84b6-2189d64f46cb") 
+      (effects 
+        (font 
+          (size 1.27 1.27)) 
+        (justify right))) 
+    (instances 
+      (project "Final_Version" 
+        (path "/732b3f58-65df-4758-8fd5-dbc662e749ea" 
+          (page "3"))))) 
+  (sheet_instances 
+    (path "/" 
+      (page "1"))) 
+  (embedded_fonts no))
